@@ -1,0 +1,130 @@
+# themes/methodology-infographic.yaml
+#
+# Theme pack — "methodology infographic" — for a Represent renderer that
+# consumes the scene this project's adapter emits (`scene.yaml` snapshot +
+# `events.jsonl` event log; run `bin/ghostdev-represent.{ps1,sh}`).
+#
+# Status: SPEC STUB. The shipped POC renderer is Mermaid (`ghostdev-represent
+# --mermaid` writes `scene.mermaid.md`). The Unity WebGPU player that binds this
+# theme pack is future work. This file pins the visual mapping so the day a
+# renderer exists, the adapter doesn't change — swapping themes (infographic ↔
+# sc2-rts ↔ …) is theme-pack work, not adapter work.
+#
+# The contract: the adapter emits only Semantic-Ontology-v0 concepts + relations
+# (Pipeline / Store / Queue / StateMachine / EventStream; produces / consumes /
+# triggers / depends-on / owns). Theme packs do ALL the visual mapping. If you
+# find a `primitive:` or `model:` hint leaking into scene.yaml, that's a bug in
+# the adapter, not here.
+
+schema: represent.theme/v0
+name: methodology-infographic
+extends: infographic          # inherit the base "infographic" primitive set; override below
+description: >
+  Renders a ghostdev docs/ tree as a NotebookLM-style annotated layered
+  stack: active IMPLs as horizontal pipeline bands (phases = lanes, checkboxes =
+  status glyphs), the docs/ subfolders as a backdrop store column, the Locked
+  Decisions table as a top-right callout, the BACKLOG as queue chips, and the
+  LOGBOOK as a bottom timeline strip.
+
+# ── Layout — a layered stack with anchored side regions ───────────────────────
+layout:
+  primitive: layered-stack
+  direction: top-to-bottom
+  sections:
+    - { id: header,   height: auto }                 # title · view · filter · as-of date
+    - { id: decisions, anchor: top-right, width: 0.28 }  # Locked Decisions callout column
+    - { id: pipelines, height: fill }                 # the active-IMPL bands — the main body
+    - { id: stores,   anchor: left,  width: 0.16 }    # impl-archive / reference / research / archive backdrop
+    - { id: queues,   anchor: right, width: 0.16 }    # BACKLOG sections
+    - { id: logbook,  anchor: bottom, height: 0.14 }  # LOGBOOK timeline strip
+
+# ── Node renderers ───────────────────────────────────────────────────────────
+nodes:
+  Pipeline:
+    primitive: layered-stack-section
+    section: pipelines
+    label: { source: name, badges: [checked-ratio, updated-age-days] }
+    warn-badge: { when: tests-deferred, glyph: "⚠", text: "tests deferred" }
+    warn-badge-2: { when: "open-bugs > 0", glyph: "●", text: "{open-bugs} open bug(s)" }
+    dim: { when: plan-only }                          # plan-only IMPLs render at reduced opacity
+    lanes: stages
+
+  Stage:
+    primitive: horizontal-lane
+    label: { source: name, badge: checked-ratio }
+    progress-bar: { source: steps, ratio: checked }
+
+  Step:
+    primitive: checkbox-glyph
+    states:
+      unchecked:     { glyph: "[ ]", color: "@muted" }
+      checked:       { glyph: "[x]", color: "@done" }
+      strikethrough: { glyph: "[~]", color: "@dropped", text-decoration: line-through }
+      deferred:      { glyph: "[>]", color: "@deferred" }
+    highlight: { when: active, ring: "@accent", prefix: "▶", text: "« next" }
+
+  Store:
+    primitive: layered-stack-backdrop
+    section: stores
+    shape: cylinder
+    label: { source: label, count: "{count} docs" }
+    temperature:                                      # which docs/ subfolder → cold→frozen tint
+      impl-archive: "@cold"
+      reference:    "@warm"
+      research:     "@hot"
+      archive:      "@frozen"
+
+  Queue:
+    primitive: chip
+    section: queues
+    shape: parallelogram
+    label: { source: label, depth: "depth {count}" }
+
+  StateMachine:                                       # CONTEXT.md § Architecture Decisions (Locked)
+    primitive: callout-table
+    section: decisions
+    title: "Locked Decisions"
+    rows: { source: transitions, columns: [date, decision, to, rationale], sort: { by: date, order: desc } }
+
+  EventStream:                                        # LOGBOOK.md
+    primitive: timeline-strip
+    section: logbook
+    title: "LOGBOOK"
+    badges: [entries-per-week, last-entry-date]
+    # individual entries arrive via events.jsonl (logbook.entry events) — see "events:" below
+
+# ── Relation renderers ───────────────────────────────────────────────────────
+relations:
+  produces:   { visual: arrow,  style: solid,  weight: bold, label: auto }   # completed phase → reference doc
+  consumes:   { visual: arrow,  style: dashed,               label: auto }   # IMPL ← research doc
+  triggers:   { visual: ping,   from: logbook, to: stage }                   # LOGBOOK entry pings a phase lane
+  depends-on: { visual: arrow,  style: dotted }                              # IMPL → IMPL
+  owns:       { visual: tether, style: hairline }                            # code file → IMPL (usually elided unless zoomed)
+
+# ── Event motion (the live-mode story — Stage 2 tails events.jsonl) ──────────
+# Each appended events.jsonl line maps to one animation primitive. Layout stays
+# stable across events so the viewer's mental map persists between updates.
+events:
+  step.checked:    { target: step,      animation: flip-in,        color: "@done",    duration: 400ms }
+  step.unchecked:  { target: step,      animation: flip-out,       color: "@muted" }
+  step.deferred:   { target: step,      animation: fade,           color: "@deferred" }
+  phase.completed: { target: stage,     animation: lane-glow,      color: "@done" }
+  logbook.entry:   { target: logbook,   animation: particle-in,    from: right }
+  decision.locked: { target: decisions, animation: row-slide-in,   from: top }
+  impl.created:    { target: pipelines, animation: band-grow }
+  impl.updated:    { target: pipeline,  animation: pulse,          color: "@accent" }
+  impl.promoted:   { target: pipeline,  animation: band-shrink-to, to: stores }
+
+# ── Palette (NotebookLM-ish, dark) ───────────────────────────────────────────
+palette:
+  background: "#0f1115"
+  text:       "#e6edf3"
+  accent:     "#4da3ff"   # @accent — the active step, IMPL highlights
+  done:       "#3fb950"   # @done   — checked steps, completed lanes
+  muted:      "#6e7681"   # @muted  — open steps
+  deferred:   "#d29922"   # @deferred — deferred-with-rationale steps, queues
+  dropped:    "#484f58"   # @dropped — strikethrough steps
+  cold:       "#1f6feb"   # @cold   — impl-archive store
+  warm:       "#8957e5"   # @warm   — reference store
+  hot:        "#db6d28"   # @hot    — research store
+  frozen:     "#30363d"   # @frozen — archive store

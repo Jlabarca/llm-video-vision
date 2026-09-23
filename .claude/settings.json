@@ -1,0 +1,84 @@
+{
+  "_comment": "ghostdev default settings — rename this file to settings.json to activate Claude Code hooks and statusline. Hooks run in warn-mode by default; set env GHOSTDEV_HOOK_BLOCK=1 to opt into block-mode globally, or set 'block-mode: true' in an individual IMPL header for per-IMPL block-mode.",
+  "_represent_hook_example": "Optional: regenerate the Represent scene on every Edit/Write (needs `dotnet tool install --global ghostdev-represent` first — see GUIDE.md § Visualize state). Add a PostToolUse hook: \"PostToolUse\": [ { \"matcher\": \"Edit|Write\", \"hooks\": [ { \"type\": \"command\", \"command\": \"pwsh -NoProfile -File bin/ghostdev-represent.ps1 --folder docs/ --mermaid --out .represent/\" } ] } ]. Costs a dotnet invocation per Edit/Write, so it's left out by default.",
+  "statusLine": {
+    "type": "command",
+    "command": "pwsh -NoProfile -File bin/statusline.ps1"
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "pwsh -NoProfile -File bin/check-impl-phase.ps1"
+          },
+          {
+            "type": "command",
+            "command": "pwsh -NoProfile -File bin/tdd-test-gate.ps1"
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "pwsh -NoProfile -File bin/init-guard.ps1"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "pwsh -NoProfile -File bin/audit-logbook.ps1"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "pwsh -NoProfile -File bin/state-prime.ps1"
+          }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "pwsh -NoProfile -File bin/precompact-handoff.ps1"
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "pwsh -NoProfile -File bin/session-reload-skills.ps1"
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "pwsh -NoProfile -File bin/declare-session-state.ps1"
+          }
+        ]
+      }
+    ]
+  }
+}
