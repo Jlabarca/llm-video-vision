@@ -1,0 +1,30 @@
+# dependencies
+node_modules/
+.pnpm-store/
+.yarn/*
+!.yarn/patches
+!.yarn/releases
+
+# framework build output (next / nuxt / nitro / vite)
+.next/
+.nuxt/
+.output/
+.data/
+dist/
+build/
+*.tsbuildinfo
+
+# env + secrets -- NEVER commit a real one; ship .env.example instead
+.env
+.env.*
+!.env.example
+*.local.json
+
+# test + coverage
+coverage/
+playwright-report/
+test-results/
+
+# os
+.DS_Store
+Thumbs.db
